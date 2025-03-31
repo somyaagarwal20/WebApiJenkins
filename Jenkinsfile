@@ -32,9 +32,27 @@ pipeline {
                     withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
                         bat """
                         az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID
-                        az group create --name $RESOURCE_GROUP --location $LOCATION
-                        az appservice plan create --name $APP_SERVICE_PLAN --resource-group $RESOURCE_GROUP --sku B1 --is-linux
-                        az webapp create --name $APP_SERVICE_NAME --plan $APP_SERVICE_PLAN --resource-group $RESOURCE_GROUP --runtime "DOTNET:8.0"
+
+                        REM Check if Resource Group exists
+                        if not exist az group show --name $RESOURCE_GROUP >nul 2>&1 (
+                            az group create --name $RESOURCE_GROUP --location $LOCATION
+                        ) else (
+                            echo Resource Group $RESOURCE_GROUP already exists
+                        )
+
+                        REM Check if App Service Plan exists
+                        if not exist az appservice plan show --name $APP_SERVICE_PLAN --resource-group $RESOURCE_GROUP >nul 2>&1 (
+                            az appservice plan create --name $APP_SERVICE_PLAN --resource-group $RESOURCE_GROUP --sku B1 --is-linux
+                        ) else (
+                            echo App Service Plan $APP_SERVICE_PLAN already exists
+                        )
+
+                        REM Check if Web App exists
+                        if not exist az webapp show --name $APP_SERVICE_NAME --resource-group $RESOURCE_GROUP >nul 2>&1 (
+                            az webapp create --name $APP_SERVICE_NAME --plan $APP_SERVICE_PLAN --resource-group $RESOURCE_GROUP --runtime "DOTNET:8.0"
+                        ) else (
+                            echo Web App $APP_SERVICE_NAME already exists
+                        )
                         """
                     }
                 }
