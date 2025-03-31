@@ -46,7 +46,7 @@ pipeline {
                 script {
                     withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
                         bat """
-                        az webapp deployment source config-zip --resource-group $RESOURCE_GROUP --name $APP_SERVICE_NAME --src ./publish.zip
+                        az webapp deploy --resource-group $RESOURCE_GROUP --name $APP_SERVICE_NAME --src-path ./publish.zip --type zip
                         """
                     }
                 }
