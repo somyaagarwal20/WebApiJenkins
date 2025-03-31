@@ -30,52 +30,45 @@ pipeline {
             steps {
                 script {
                     withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
-                        // Run login separately to avoid blocking execution
                         bat "az login --service-principal -u %AZURE_CLIENT_ID% -p %AZURE_CLIENT_SECRET% --tenant %AZURE_TENANT_ID%"
-        
-                        // Ensure login was successful
                         bat "az account show"
         
                         // Check and create Resource Group
                         bat """
-                        echo Checking if resource group exists...
-                        az group show --name ${RESOURCE_GROUP} >nul 2>&1
-                        if %ERRORLEVEL% NEQ 0 (
-                            echo Creating resource group...
-                            az group create --name ${RESOURCE_GROUP} --location ${LOCATION}
+                        az group show --name %RESOURCE_GROUP% >nul 2>&1
+                        if ERRORLEVEL 1 (
+                            echo Resource group does not exist, creating...
+                            az group create --name %RESOURCE_GROUP% --location %LOCATION%
                         ) else (
-                            echo Resource Group ${RESOURCE_GROUP} already exists.
+                            echo Resource group %RESOURCE_GROUP% already exists.
                         )
                         """
         
                         // Check and create App Service Plan
                         bat """
-                        echo Checking if App Service Plan exists...
-                        az appservice plan show --name ${APP_SERVICE_PLAN} --resource-group ${RESOURCE_GROUP} >nul 2>&1
-                        if %ERRORLEVEL% NEQ 0 (
+                        az appservice plan show --name %APP_SERVICE_PLAN% --resource-group %RESOURCE_GROUP% >nul 2>&1
+                        if ERRORLEVEL 1 (
                             echo Creating App Service Plan...
-                            az appservice plan create --name ${APP_SERVICE_PLAN} --resource-group ${RESOURCE_GROUP} --sku B1 --is-linux
+                            az appservice plan create --name %APP_SERVICE_PLAN% --resource-group %RESOURCE_GROUP% --sku B1 --is-linux
                         ) else (
-                            echo App Service Plan ${APP_SERVICE_PLAN} already exists.
+                            echo App Service Plan %APP_SERVICE_PLAN% already exists.
                         )
                         """
         
                         // Check and create Web App
                         bat """
-                        echo Checking if Web App exists...
-                        az webapp show --name ${APP_SERVICE_NAME} --resource-group ${RESOURCE_GROUP} >nul 2>&1
-                        if %ERRORLEVEL% NEQ 0 (
+                        az webapp show --name %APP_SERVICE_NAME% --resource-group %RESOURCE_GROUP% >nul 2>&1
+                        if ERRORLEVEL 1 (
                             echo Creating Web App...
-                            az webapp create --name ${APP_SERVICE_NAME} --plan ${APP_SERVICE_PLAN} --resource-group ${RESOURCE_GROUP} --runtime "DOTNET:8.0"
+                            az webapp create --name %APP_SERVICE_NAME% --plan %APP_SERVICE_PLAN% --resource-group %RESOURCE_GROUP% --runtime "DOTNET:8.0"
                         ) else (
-                            echo Web App ${APP_SERVICE_NAME} already exists.
+                            echo Web App %APP_SERVICE_NAME% already exists.
                         )
                         """
                     }
                 }
             }
         }
-
 
         stage('Deploy to Azure App Service') {
             steps {
