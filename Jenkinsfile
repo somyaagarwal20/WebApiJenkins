@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        AZURE_CREDENTIALS_ID = 'azure-service-principal'  // Set this in Jenkins Credentials
+        AZURE_CREDENTIALS_ID = 'azure-service-principal'
         RESOURCE_GROUP = 'rg-jenkins'
         APP_SERVICE_PLAN = 'asp-jenkins'
         APP_SERVICE_NAME = 'webapijenkins8372648'
@@ -34,26 +34,20 @@ pipeline {
                 
                 script {
                     def rgExists = bat(script: "az group exists --name $RESOURCE_GROUP", returnStdout: true).trim() == 'true'
-                    if (!rgExists) {
-                        bat "az group create --name $RESOURCE_GROUP --location $LOCATION"
-                    }
+                    if (!rgExists) { bat "az group create --name $RESOURCE_GROUP --location $LOCATION" }
                     
-                    def planExists = bat(script: "az appservice plan show --name $APP_SERVICE_PLAN --resource-group $RESOURCE_GROUP", returnStatus: true) == 0
-                    if (!planExists) {
-                        bat "az appservice plan create --name $APP_SERVICE_PLAN --resource-group $RESOURCE_GROUP --sku F1"
-                    }
+                    def planExists = bat(script: "az appservice plan list --resource-group $RESOURCE_GROUP --query \"[?name=='$APP_SERVICE_PLAN'] | length(@)\" -o tsv", returnStdout: true).trim() == '1'
+                    if (!planExists) { bat "az appservice plan create --name $APP_SERVICE_PLAN --resource-group $RESOURCE_GROUP --sku F1 --is-linux" }
                     
-                    def webAppExists = bat(script: "az webapp show --name $APP_SERVICE_NAME --resource-group $RESOURCE_GROUP", returnStatus: true) == 0
-                    if (!webAppExists) {
-                        bat "az webapp create --name $APP_SERVICE_NAME --resource-group $RESOURCE_GROUP --plan $APP_SERVICE_PLAN --runtime 'DOTNETCORE:8.0'"
-                    }
+                    def webAppExists = bat(script: "az webapp list --resource-group $RESOURCE_GROUP --query \"[?name=='$APP_SERVICE_NAME'] | length(@)\" -o tsv", returnStdout: true).trim() == '1'
+                    if (!webAppExists) { bat "az webapp create --name $APP_SERVICE_NAME --resource-group $RESOURCE_GROUP --plan $APP_SERVICE_PLAN --runtime 'DOTNETCORE:8.0'" }
                 }
             }
         }
         
         stage('Deploy to Azure') {
             steps {
-                bat "az webapp deploy --resource-group $RESOURCE_GROUP --name $APP_SERVICE_NAME --src-path publish_output"
+                bat "az webapp deploy --resource-group $RESOURCE_GROUP --name $APP_SERVICE_NAME --src-path ./publish.zip --type zip"
             }
         }
     }
