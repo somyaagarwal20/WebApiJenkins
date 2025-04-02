@@ -23,37 +23,42 @@ pipeline {
             }
         }
 
-        stage('Azure Infrastructure Setup') {
+        stage('Azure Infrastructure Check') {
             steps {
                 withCredentials([azureServicePrincipal(credentialsId: AZURE_CREDENTIALS_ID)]) {
                     bat "az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID"
                     
                     script {
-                        // 1. Check/Create Resource Group
-                        def rgOut = bat(script: "az group exists --name $RESOURCE_GROUP", returnStdout: true).trim()
-                        if (rgOut == 'false') {
-                            bat "az group create --name $RESOURCE_GROUP --location $LOCATION"
-                            echo "Created Resource Group: $RESOURCE_GROUP"
+                        // 1. Verify Resource Group (working)
+                        def rgExists = bat(script: "az group exists --name $RESOURCE_GROUP", returnStdout: true).trim() == 'true'
+                        if (!rgExists) {
+                            error "Resource Group $RESOURCE_GROUP not found - please create it first"
                         }
-
-                        // 2. Check/Create App Service Plan (Linux)
-                        def planOut = bat(script: "az appservice plan list --resource-group $RESOURCE_GROUP --query \"[?name=='$APP_SERVICE_PLAN'].name\" -o tsv", returnStdout: true).trim()
-                        if (planOut != "$APP_SERVICE_PLAN") {
-                            bat "az appservice plan create --name $APP_SERVICE_PLAN --resource-group $RESOURCE_GROUP --sku F1 --is-linux --location $LOCATION"
-                            echo "Created App Service Plan: $APP_SERVICE_PLAN"
+        
+                        // 2. Bulletproof App Service Plan Check
+                        def planCheck = bat(
+                            script: "az appservice plan show --name $APP_SERVICE_PLAN --resource-group $RESOURCE_GROUP --query \"name\" -o tsv",
+                            returnStdout: true
+                        ).trim()
+                        
+                        if (planCheck != "$APP_SERVICE_PLAN") {
+                            error "App Service Plan $APP_SERVICE_PLAN not found in Resource Group $RESOURCE_GROUP"
                         }
-
-                        // 3. Check/Create Web App (.NET 8)
-                        def webAppOut = bat(script: "az webapp list --resource-group $RESOURCE_GROUP --query \"[?name=='$APP_SERVICE_NAME'].name\" -o tsv", returnStdout: true).trim()
-                        if (webAppOut != "$APP_SERVICE_NAME") {
-                            bat "az webapp create --name $APP_SERVICE_NAME --resource-group $RESOURCE_GROUP --plan $APP_SERVICE_PLAN --runtime \"DOTNETCORE:8.0\""
-                            echo "Created Web App: $APP_SERVICE_NAME"
+        
+                        // 3. Web App Check
+                        def webAppCheck = bat(
+                            script: "az webapp show --name $APP_SERVICE_NAME --resource-group $RESOURCE_GROUP --query \"name\" -o tsv",
+                            returnStdout: true
+                        ).trim()
+                        
+                        if (webAppCheck != "$APP_SERVICE_NAME") {
+                            bat "az webapp create --name $APP_SERVICE_NAME --resource-group $RESOURCE_GROUP --plan $APP_SERVICE_PLAN --runtime 'DOTNETCORE:8.0'"
                         }
                     }
                 }
             }
         }
-
+        
         stage('Deploy') {
             steps {
                 bat "az webapp deploy --resource-group $RESOURCE_GROUP --name $APP_SERVICE_NAME --src-path ./publish --type zip"
