@@ -34,13 +34,19 @@ pipeline {
                 
                 script {
                     def rgExists = bat(script: "az group exists --name $RESOURCE_GROUP", returnStdout: true).trim() == 'true'
-                    if (!rgExists) { bat "az group create --name $RESOURCE_GROUP --location $LOCATION" }
+                    if (!rgExists) { 
+                        bat "az group create --name $RESOURCE_GROUP --location $LOCATION" 
+                    }
                     
-                    def planExists = bat(script: "az appservice plan list --resource-group $RESOURCE_GROUP --query \"[?name=='$APP_SERVICE_PLAN'] | length(@)\" -o tsv", returnStdout: true).trim() == '1'
-                    if (!planExists) { bat "az appservice plan create --name $APP_SERVICE_PLAN --resource-group $RESOURCE_GROUP --sku F1 --is-linux" }
+                    def planExists = bat(script: "az appservice plan show --name $APP_SERVICE_PLAN --resource-group $RESOURCE_GROUP --query name -o tsv", returnStdout: true).trim() == "$APP_SERVICE_PLAN"
+                    if (!planExists) { 
+                        bat "az appservice plan create --name $APP_SERVICE_PLAN --resource-group $RESOURCE_GROUP --sku F1 --is-linux" 
+                    }
                     
-                    def webAppExists = bat(script: "az webapp list --resource-group $RESOURCE_GROUP --query \"[?name=='$APP_SERVICE_NAME'] | length(@)\" -o tsv", returnStdout: true).trim() == '1'
-                    if (!webAppExists) { bat "az webapp create --name $APP_SERVICE_NAME --resource-group $RESOURCE_GROUP --plan $APP_SERVICE_PLAN --runtime 'DOTNETCORE:8.0'" }
+                    def webAppExists = bat(script: "az webapp show --name $APP_SERVICE_NAME --resource-group $RESOURCE_GROUP --query name -o tsv", returnStdout: true).trim() == "$APP_SERVICE_NAME"
+                    if (!webAppExists) { 
+                        bat "az webapp create --name $APP_SERVICE_NAME --resource-group $RESOURCE_GROUP --plan $APP_SERVICE_PLAN --runtime 'DOTNETCORE:8.0'" 
+                    }
                 }
             }
         }
