@@ -26,63 +26,38 @@ pipeline {
             }
         }
 
-        stage('Create Azure Resources') {
+        stage('Azure Setup') {
             steps {
+                withCredentials([azureServicePrincipal(credentialsId: AZURE_CREDENTIALS_ID)]) {
+                    bat "az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID"
+                }
+                
                 script {
-                    withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
-                        bat "az login --service-principal -u %AZURE_CLIENT_ID% -p %AZURE_CLIENT_SECRET% --tenant %AZURE_TENANT_ID%"
-                        bat "az account show"
-        
-                        // Check and create Resource Group
-                        bat """
-                        az group show --name %RESOURCE_GROUP% >nul 2>&1
-                        if ERRORLEVEL 1 (
-                            echo Resource group does not exist, creating...
-                            az group create --name %RESOURCE_GROUP% --location %LOCATION%
-                        ) else (
-                            echo Resource group %RESOURCE_GROUP% already exists.
-                        )
-                        """
-        
-                        // Check and create App Service Plan
-                        bat """
-                        az appservice plan show --name %APP_SERVICE_PLAN% --resource-group %RESOURCE_GROUP% >nul 2>&1
-                        if ERRORLEVEL 1 (
-                            echo Creating App Service Plan...
-                            az appservice plan create --name %APP_SERVICE_PLAN% --resource-group %RESOURCE_GROUP% --sku B1 --is-linux
-                        ) else (
-                            echo App Service Plan %APP_SERVICE_PLAN% already exists.
-                        )
-                        """
-        
-                        // Check and create Web App
-                        bat """
-                        az webapp show --name %APP_SERVICE_NAME% --resource-group %RESOURCE_GROUP% >nul 2>&1
-                        if ERRORLEVEL 1 (
-                            echo Creating Web App...
-                            az webapp create --name %APP_SERVICE_NAME% --plan %APP_SERVICE_PLAN% --resource-group %RESOURCE_GROUP% --runtime "DOTNET:8.0"
-                        ) else (
-                            echo Web App %APP_SERVICE_NAME% already exists.
-                        )
-                        """
+                    def rgExists = bat(script: "az group show --name $AZURE_RESOURCE_GROUP", returnStatus: true) == 0
+                    if (!rgExists) {
+                        bat "az group create --name $AZURE_RESOURCE_GROUP --location $AZURE_LOCATION"
+                    }
+                    
+                    def planExists = bat(script: "az appservice plan show --name $AZURE_PLAN_NAME --resource-group $AZURE_RESOURCE_GROUP", returnStatus: true) == 0
+                    if (!planExists) {
+                        bat "az appservice plan create --name $AZURE_PLAN_NAME --resource-group $AZURE_RESOURCE_GROUP --sku F1"
+                    }
+                    
+                    def webAppExists = bat(script: "az webapp show --name $AZURE_APP_NAME --resource-group $AZURE_RESOURCE_GROUP", returnStatus: true) == 0
+                    if (!webAppExists) {
+                        bat "az webapp create --name $AZURE_APP_NAME --resource-group $AZURE_RESOURCE_GROUP --plan $AZURE_PLAN_NAME --runtime 'DOTNET:8.0'"
                     }
                 }
             }
         }
-
-        stage('Deploy to Azure App Service') {
+        
+        stage('Deploy to Azure') {
             steps {
-                script {
-                    withCredentials([azureServicePrincipal(AZURE_CREDENTIALS_ID)]) {
-                        bat """
-                        az webapp deploy --resource-group $RESOURCE_GROUP --name $APP_SERVICE_NAME --src-path ./publish.zip --type zip
-                        """
-                    }
-                }
+                bat "az webapp deploy --resource-group $AZURE_RESOURCE_GROUP --name $AZURE_APP_NAME --src-path publish_output"
             }
         }
     }
-
+    
     post {
         success {
             echo 'Deployment Successful!'
