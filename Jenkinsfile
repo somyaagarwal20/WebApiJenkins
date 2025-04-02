@@ -33,9 +33,9 @@ pipeline {
                 }
                 
                 script {
-                    def rgExists = bat(script: "az group show --name $RESOURCE_GROUP", returnStatus: true) == 0
+                    def rgExists = bat(script: "az group exists --name $RESOURCE_GROUP", returnStdout: true).trim() == 'true'
                     if (!rgExists) {
-                        bat "az group create --name $RESOURCE_GROUP --location $AZURE_LOCATION"
+                        bat "az group create --name $RESOURCE_GROUP --location $LOCATION"
                     }
                     
                     def planExists = bat(script: "az appservice plan show --name $APP_SERVICE_PLAN --resource-group $RESOURCE_GROUP", returnStatus: true) == 0
