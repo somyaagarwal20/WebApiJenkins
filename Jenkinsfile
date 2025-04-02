@@ -3,9 +3,7 @@ pipeline {
     environment {
         AZURE_CREDENTIALS_ID = 'azure-service-principal'
         RESOURCE_GROUP = 'rg-jenkins'
-        APP_SERVICE_PLAN = 'asp-jenkins'
         APP_SERVICE_NAME = 'webapijenkins8372648'
-        LOCATION = 'EastUS2'
     }
 
     stages {
@@ -23,41 +21,13 @@ pipeline {
             }
         }
 
-        stage('Azure Setup') {
+        stage('Deploy') {
             steps {
                 withCredentials([azureServicePrincipal(credentialsId: AZURE_CREDENTIALS_ID)]) {
                     bat "az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID"
-                    
-                    script {
-                        def rgExists = bat(script: "az group exists --name $RESOURCE_GROUP", returnStdout: true).trim() == 'true'
-                        if (!rgExists) {
-                            bat "az group create --name $RESOURCE_GROUP --location $LOCATION"
-                        } else {
-                            echo "Resource Group $RESOURCE_GROUP already exists"
-                        }
-
-                        def planCheck = bat(script: "az appservice plan show --name $APP_SERVICE_PLAN --resource-group $RESOURCE_GROUP --query name -o tsv", returnStdout: true).trim()
-                        if (planCheck != "$APP_SERVICE_PLAN") {
-                            bat "az appservice plan create --name $APP_SERVICE_PLAN --resource-group $RESOURCE_GROUP --sku F1 --is-linux"
-                        } else {
-                            echo "App Service Plan $APP_SERVICE_PLAN already exists"
-                        }
-
-                        def webAppCheck = bat(script: "az webapp show --name $APP_SERVICE_NAME --resource-group $RESOURCE_GROUP --query name -o tsv", returnStdout: true).trim()
-                        if (webAppCheck != "$APP_SERVICE_NAME") {
-                            bat "az webapp create --name $APP_SERVICE_NAME --resource-group $RESOURCE_GROUP --plan $APP_SERVICE_PLAN --runtime 'DOTNETCORE:8.0'"
-                        } else {
-                            echo "Web App $APP_SERVICE_NAME already exists"
-                        }
-                    }
+                    bat "powershell Compress-Archive -Path ./publish/* -DestinationPath ./publish.zip -Force"
+                    bat "az webapp deploy --resource-group $RESOURCE_GROUP --name $APP_SERVICE_NAME --src-path ./publish.zip --type zip"
                 }
-            }
-        }
-
-        stage('Deploy') {
-            steps {
-                bat "powershell Compress-Archive -Path ./publish/* -DestinationPath ./publish.zip -Force"
-                bat "az webapp deploy --resource-group $RESOURCE_GROUP --name $APP_SERVICE_NAME --src-path ./publish.zip --type zip"
             }
         }
     }
