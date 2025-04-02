@@ -33,19 +33,19 @@ pipeline {
                 }
                 
                 script {
-                    def rgExists = bat(script: "az group show --name $AZURE_RESOURCE_GROUP", returnStatus: true) == 0
+                    def rgExists = bat(script: "az group show --name $RESOURCE_GROUP", returnStatus: true) == 0
                     if (!rgExists) {
-                        bat "az group create --name $AZURE_RESOURCE_GROUP --location $AZURE_LOCATION"
+                        bat "az group create --name $RESOURCE_GROUP --location $AZURE_LOCATION"
                     }
                     
-                    def planExists = bat(script: "az appservice plan show --name $AZURE_PLAN_NAME --resource-group $AZURE_RESOURCE_GROUP", returnStatus: true) == 0
+                    def planExists = bat(script: "az appservice plan show --name $APP_SERVICE_PLAN --resource-group $RESOURCE_GROUP", returnStatus: true) == 0
                     if (!planExists) {
-                        bat "az appservice plan create --name $AZURE_PLAN_NAME --resource-group $AZURE_RESOURCE_GROUP --sku F1"
+                        bat "az appservice plan create --name $APP_SERVICE_PLAN --resource-group $RESOURCE_GROUP --sku F1"
                     }
                     
-                    def webAppExists = bat(script: "az webapp show --name $AZURE_APP_NAME --resource-group $AZURE_RESOURCE_GROUP", returnStatus: true) == 0
+                    def webAppExists = bat(script: "az webapp show --name $APP_SERVICE_NAME --resource-group $RESOURCE_GROUP", returnStatus: true) == 0
                     if (!webAppExists) {
-                        bat "az webapp create --name $AZURE_APP_NAME --resource-group $AZURE_RESOURCE_GROUP --plan $AZURE_PLAN_NAME --runtime 'DOTNET:8.0'"
+                        bat "az webapp create --name $APP_SERVICE_NAME --resource-group $RESOURCE_GROUP --plan $APP_SERVICE_PLAN --runtime 'DOTNET:8.0'"
                     }
                 }
             }
@@ -53,7 +53,7 @@ pipeline {
         
         stage('Deploy to Azure') {
             steps {
-                bat "az webapp deploy --resource-group $AZURE_RESOURCE_GROUP --name $AZURE_APP_NAME --src-path publish_output"
+                bat "az webapp deploy --resource-group $RESOURCE_GROUP --name $APP_SERVICE_NAME --src-path publish_output"
             }
         }
     }
