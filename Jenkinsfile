@@ -1,66 +1,43 @@
-// For terraform
 pipeline {
     agent any
-
     environment {
-        ARM_CLIENT_ID       = credentials('AZURE_CLIENT_ID')
-        ARM_CLIENT_SECRET   = credentials('AZURE_CLIENT_SECRET')
-        ARM_SUBSCRIPTION_ID = credentials('AZURE_SUBSCRIPTION_ID')
-        ARM_TENANT_ID       = credentials('AZURE_TENANT_ID')
+        DOCKER_IMAGE = "somyaagrawal/my-node-app"
+        DOCKER_CREDENTIALS_ID = "dockerhub"
     }
 
     stages {
-        stage('Checkout') {
+        stage('Checkout Code') {
             steps {
-                git url: 'https://github.com/somyaagarwal20/WebApiJenkins.git', branch: 'master'
+                git branch: 'main',
+                    url: 'https://github.com/somyaagarwal20/WebApiJenkins.git'
             }
         }
 
-        stage('Terraform Init') {
+        stage('Build Docker Image') {
             steps {
-                bat 'terraform init'
-            }
-        }
-
-        stage('Terraform Plan') {
-            steps {
-                bat '''
-                    terraform plan ^
-                      -var client_id=%ARM_CLIENT_ID% ^
-                      -var client_secret=%ARM_CLIENT_SECRET% ^
-                      -var tenant_id=%ARM_TENANT_ID% ^
-                      -var subscription_id=%ARM_SUBSCRIPTION_ID%
-                    '''
-            }
-        }
-
-        stage('Terraform Apply') {
-            steps {
-                bat '''
-                terraform apply -auto-approve ^
-                  -var client_id=%ARM_CLIENT_ID% ^
-                  -var client_secret=%ARM_CLIENT_SECRET% ^
-                  -var tenant_id=%ARM_TENANT_ID% ^
-                  -var subscription_id=%ARM_SUBSCRIPTION_ID%
-                '''
-            }
-        }
-         stage('Build .NET App') {
-            steps {
-                dir('WebApiJenkins') { // Adjust to your .NET project folder
-                    bat 'dotnet publish -c Release -o publish'
+                script {
+                    dockerImage = docker.build(DOCKER_IMAGE)
                 }
             }
         }
 
-        stage('Deploy to Azure') {
+        stage('Push to Docker Hub') {
             steps {
-                bat '''
-                powershell Compress-Archive -Path WebApiJenkins\\publish\\* -DestinationPath publish.zip -Force
-                az webapp deployment source config-zip --resource-group jenkins-palak-rg --name jenkins-palak-app123 --src publish.zip
-                '''
+                script {
+                    docker.withRegistry('https://index.docker.io/v1/', DOCKER_CREDENTIALS_ID) {
+                        dockerImage.push("latest")
+                    }
+                }
             }
-        }   
+        }
+    }
+
+    post {
+        success {
+            echo 'Docker image pushed successfully!'
+        }
+        failure {
+            echo 'Build failed.'
+        }
     }
 }
-
