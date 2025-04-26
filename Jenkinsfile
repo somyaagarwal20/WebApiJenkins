@@ -3,6 +3,7 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = 'somyaagrawal/my-node-app'
+        DOCKER_TAG = 'latest'    // Add this missing variable
         DOCKER_CREDENTIALS_ID = 'dockerhub'  // Jenkins credentials ID for Docker Hub login
     }
 
@@ -16,25 +17,21 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    dockerImage= docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}")
+                    dockerImage = docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}")
                 }
             }
         }
-
-      
 
         stage('Push Docker Image') {
             steps {
                 script {
                     docker.withRegistry('https://index.docker.io/v1/', "${DOCKER_CREDENTIALS_ID}") {
-                        docker.image.push("latest")
+                        dockerImage.push("${DOCKER_TAG}")   // corrected here
                     }
                 }
             }
         }
     }
-}
-
 
     post {
         success {
