@@ -1,36 +1,40 @@
 pipeline {
     agent any
+
     environment {
-        DOCKER_IMAGE = "somyaagrawal/my-node-app"
-        DOCKER_CREDENTIALS_ID = "dockerhub"
+        DOCKER_IMAGE = 'somyaagrawal/my-node-app'
+        DOCKER_CREDENTIALS_ID = 'dockerhub'  // Jenkins credentials ID for Docker Hub login
     }
 
     stages {
         stage('Checkout Code') {
             steps {
-                git branch: 'master',
-                    url: 'https://github.com/somyaagarwal20/WebApiJenkins.git'
+                git branch: 'master', url: 'https://github.com/somyaagarwal20/WebApiJenkins.git'
             }
         }
 
         stage('Build Docker Image') {
             steps {
                 script {
-                    dockerImage = docker.build(DOCKER_IMAGE)
+                    dockerImage= docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}")
                 }
             }
         }
 
-        stage('Push to Docker Hub') {
+      
+
+        stage('Push Docker Image') {
             steps {
                 script {
-                    docker.withRegistry('https://index.docker.io/v1/', DOCKER_CREDENTIALS_ID) {
-                        dockerImage.push("latest")
+                    docker.withRegistry('https://index.docker.io/v1/', "${DOCKER_CREDENTIALS_ID}") {
+                        docker.image.push("latest")
                     }
                 }
             }
         }
     }
+}
+
 
     post {
         success {
